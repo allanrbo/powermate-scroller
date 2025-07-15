@@ -6,8 +6,9 @@ SCROLL_MULTIPLIER = 2      # 1 = default speed, 2-4 feel natural, >6 can jump
 SRC_DEV = "/dev/input/by-id/usb-Griffin_Technology__Inc._Griffin_PowerMate-event-if00"
 UINPUT  = "/dev/uinput"
 
-EV_SYN, EV_KEY, EV_REL = 0x00, 0x01, 0x02
+EV_SYN, EV_KEY, EV_REL, EV_MSC = 0x00, 0x01, 0x02, 0x04
 SYN_REPORT, REL_DIAL, REL_WHEEL = 0, 0x07, 0x08
+MSC_PULSELED = 0x01
 BTN_0, BTN_LEFT = 0x100, 0x110
 UI_SET_EVBIT, UI_SET_KEYBIT, UI_SET_RELBIT = 0x40045564, 0x40045565, 0x40045566
 UI_DEV_CREATE, UI_DEV_DESTROY = 0x5501, 0x5502
@@ -18,6 +19,10 @@ def emit(fd, etype, code, value):
     t = time.time()
     sec, usec = int(t), int((t - int(t)) * 1000000)
     os.write(fd, struct.pack(EVENT_FMT, sec, usec, etype, code, value))
+
+def set_led(fd, brightness):
+    emit(fd, EV_MSC, MSC_PULSELED, brightness)
+    emit(fd, EV_SYN, SYN_REPORT, 0)
 
 def make_uinput():
     fd = os.open(UINPUT, os.O_WRONLY | os.O_NONBLOCK)
@@ -55,11 +60,12 @@ def main():
     try:
         while True:
             try:
-                src_fd = os.open(SRC_DEV, os.O_RDONLY)
+                src_fd = os.open(SRC_DEV, os.O_RDWR)
             except FileNotFoundError:
                 time.sleep(3)
                 continue
             try:
+                set_led(src_fd, 0)
                 run_loop(src_fd, ui_fd)
             finally:
                 os.close(src_fd)
